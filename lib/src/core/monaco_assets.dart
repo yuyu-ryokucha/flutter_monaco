@@ -334,6 +334,8 @@ class MonacoAssets {
 ''';
     }
 
+    const jsEscapePattern = r'[.*+?^${}()|[\]\\]';
+
     return '''
 <!DOCTYPE html>
 <html>
@@ -344,6 +346,8 @@ class MonacoAssets {
       http-equiv="Content-Security-Policy"
       content="default-src 'self' file: 'unsafe-inline' 'unsafe-eval'; script-src 'self' file: 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'${allowCdnFonts ? ' https:' : ''}; font-src 'self' file: data:${allowCdnFonts ? ' https:' : ''}; img-src 'self' data: blob: file:; worker-src 'self' blob:; connect-src 'self' blob:;"
     />
+    <!-- NOTE: connect-src intentionally limits in-page requests to self/blob.
+         If you need the embedded JS to call remote APIs directly, add https: to connect-src. -->
     <style>
       html, body, #editor-container {
         width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
@@ -441,7 +445,11 @@ class MonacoAssets {
                 E().onDidBlurEditorWidget(() => post('blur', {}));
 
                 // Typed helpers Flutter will call
+                const escapeRegExp = (value) =>
+                  (value ?? '').replace(/$jsEscapePattern/g, '\\\\\$&');
+
                 window.flutterMonaco = {
+
                   // Basic editor operations
                   focus: () => E().focus(),
                   layout: () => { try { E().layout(); } catch (_) {} },
@@ -545,14 +553,20 @@ class MonacoAssets {
                     const isRegex = !!(options && options.isRegex);
                     const matchCase = !!(options && options.matchCase);
                     const wholeWord = !!(options && options.wholeWord);
-                    
-                    // Note: wholeWord support uses Monaco's word separators (null parameter)
+
+                    let search = q ?? '';
+                    let useRegex = isRegex;
+                    if (wholeWord && !isRegex) {
+                      search = '\\\\b' + escapeRegExp(String(q ?? '')) + '\\\\b';
+                      useRegex = true;
+                    }
+
                     const matches = m.findMatches(
-                      q,
+                      search,
                       null,                 // searchScope: null = whole model (FIX: was 'false')
-                      isRegex,              // isRegex
+                      useRegex,
                       matchCase,
-                      wholeWord ? null : undefined,  // wordSeparators (null may help with word boundaries)
+                      null,
                       false,                // captureMatches
                       limit || 9999
                     );
@@ -565,13 +579,20 @@ class MonacoAssets {
                     const isRegex = !!(options && options.isRegex);
                     const matchCase = !!(options && options.matchCase);
                     const wholeWord = !!(options && options.wholeWord);
-                    
+
+                    let search = q ?? '';
+                    let useRegex = isRegex;
+                    if (wholeWord && !isRegex) {
+                      search = '\\\\b' + escapeRegExp(String(q ?? '')) + '\\\\b';
+                      useRegex = true;
+                    }
+
                     const matches = m.findMatches(
-                      q,
+                      search,
                       null,                 // searchScope: null = whole model (FIX: was 'false')
-                      isRegex,              // isRegex
+                      useRegex,
                       matchCase,
-                      wholeWord ? null : undefined,  // wordSeparators (null may help with word boundaries)
+                      null,
                       false,                // captureMatches
                       9999
                     );
@@ -633,6 +654,142 @@ class MonacoAssets {
                   },
                   listModels: () => monaco.editor.getModels().map(m => m.uri.toString()),
                 };
+
+                // Completion bridge: JS stays dumb, Flutter drives the data
+                (function () {
+                  const completion = {
+                    resolvers: Object.create(null),
+                    providers: Object.create(null),
+                    nextId: 1,
+                  };
+
+                  function toIRange(r) {
+                    if (!r) return undefined;
+                    const sL = r.startLineNumber ?? r.startLine ?? r.from_line ?? r.start ?? 1;
+                    const sC = r.startColumn ?? r.startCol ?? r.sc ?? 1;
+                    const eL = r.endLineNumber ?? r.endLine ?? r.to_line ?? r.end ?? sL;
+                    const eC = r.endColumn ?? r.endCol ?? r.ec ?? sC;
+                    return {
+                      startLineNumber: sL,
+                      startColumn: sC,
+                      endLineNumber: eL,
+                      endColumn: eC,
+                    };
+                  }
+
+                  // cfg: { id?: string, languages: string[]|string, triggerCharacters?: string[] }
+                  window.flutterMonaco.registerCompletionSource = function (cfg) {
+                    const id = cfg?.id || 'flutter_' + completion.nextId++;
+                    const langs = Array.isArray(cfg?.languages)
+                      ? cfg.languages
+                      : [cfg?.languages ?? 'plaintext'];
+                    const triggerCharacters = cfg?.triggerCharacters || [];
+
+                    const provider = {
+                      triggerCharacters,
+                      provideCompletionItems: (model, position, context, token) =>
+                        new Promise((resolve) => {
+                          const reqId =
+                            id + ':' + Date.now() + ':' + Math.random().toString(36).slice(2);
+                          completion.resolvers[reqId] = resolve;
+
+                          const lang =
+                            (model.getLanguageId && model.getLanguageId()) ||
+                            monaco.editor.getModelLanguage(model);
+                          const word = model.getWordUntilPosition(position);
+                          const defaultRange = {
+                            startLineNumber: position.lineNumber,
+                            startColumn: word.startColumn,
+                            endLineNumber: position.lineNumber,
+                            endColumn: word.endColumn,
+                          };
+
+                          const payload = {
+                            event: 'completionRequest',
+                            providerId: id,
+                            requestId: reqId,
+                            language: lang,
+                            uri: model.uri?.toString(),
+                            position: {
+                              lineNumber: position.lineNumber,
+                              column: position.column,
+                            },
+                            defaultRange,
+                            lineText: model.getLineContent(position.lineNumber),
+                            triggerKind: context?.triggerKind ?? null,
+                            triggerCharacter: context?.triggerCharacter ?? null,
+                          };
+                          window.flutterChannel?.postMessage(JSON.stringify(payload));
+
+                          token?.onCancellationRequested?.(() => {
+                            delete completion.resolvers[reqId];
+                            try {
+                              resolve({ suggestions: [] });
+                            } catch (_) {}
+                          });
+                        }),
+                    };
+
+                    const disposables = langs.map((l) =>
+                      monaco.languages.registerCompletionItemProvider(l, provider),
+                    );
+                    completion.providers[id] = { disposables };
+                    return id;
+                  };
+
+                  window.flutterMonaco.unregisterCompletionSource = function (id) {
+                    const p = completion.providers[id];
+                    if (p?.disposables) {
+                      for (const d of p.disposables) {
+                        try {
+                          d.dispose();
+                        } catch (_) {}
+                      }
+                    }
+                    delete completion.providers[id];
+                  };
+
+                  // Flutter -> JS: deliver completion results
+                  window.flutterMonaco.complete = function (requestId, payload) {
+                    const resolve = completion.resolvers[requestId];
+                    if (!resolve) return;
+                    try {
+                      const items = (payload && payload.suggestions) || [];
+                      const mapped = items.map((it) => {
+                        let kind = it.kind;
+                        if (typeof kind === 'string') {
+                          kind = monaco.languages.CompletionItemKind[kind] ??
+                            monaco.languages.CompletionItemKind.Text;
+                        }
+                        let insertTextRules = it.insertTextRules;
+                        if (Array.isArray(insertTextRules)) {
+                          insertTextRules = insertTextRules.reduce((mask, rule) => {
+                            const value = monaco.languages.CompletionItemInsertTextRule[rule];
+                            return typeof value === 'number' ? (mask | value) : mask;
+                          }, 0);
+                        }
+                        return {
+                          label: it.label,
+                          insertText: it.insertText || it.label,
+                          kind: kind || monaco.languages.CompletionItemKind.Text,
+                          detail: it.detail,
+                          documentation: it.documentation,
+                          sortText: it.sortText,
+                          filterText: it.filterText,
+                          commitCharacters: it.commitCharacters,
+                          insertTextRules: insertTextRules || undefined,
+                          range: toIRange(it.range) || toIRange(payload?.defaultRange),
+                        };
+                      });
+                      resolve({
+                        suggestions: mapped,
+                        incomplete: !!payload?.isIncomplete,
+                      });
+                    } finally {
+                      delete completion.resolvers[requestId];
+                    }
+                  };
+                })();
               })();
             });
 

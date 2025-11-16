@@ -803,7 +803,7 @@ extension EditorOptionsPatterns on EditorOptions {
 
 class _EditorOptions extends EditorOptions {
   const _EditorOptions(
-      {this.language = MonacoLanguage.markdown,
+      {this.language = MonacoLanguage.dart,
       this.theme = MonacoTheme.vsDark,
       this.fontSize = 14,
       this.fontFamily = 'Consolas, "Courier New", monospace',

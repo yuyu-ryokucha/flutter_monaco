@@ -3,6 +3,15 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-16
+### Added
+- Full IntelliSense bridge: JavaScript hooks + `MonacoController.registerCompletionSource` / `registerStaticCompletions`.
+- Strongly typed completion models (`CompletionItem`, `CompletionList`, `CompletionRequest`, `CompletionItemKind`, `InsertTextRule`).
+- README + example updates showing how to source completions from snippets or remote services.
+
+### Fixed
+- Export ordering and analyzer fixes to keep the public API clean.
+
 ## [1.0.0] - 2025-09-15
 - Reliable typing after route/app switches on macOS/Windows — no right‑click needed.
 - Optional `MonacoFocusGuard` to auto‑restore focus on resume/route return.

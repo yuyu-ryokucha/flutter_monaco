@@ -20,6 +20,7 @@ A Flutter plugin for integrating the Monaco Editor (VS Code's editor) into Flutt
 - ⚡ **Multiple Editors** - Support for unlimited independent editor instances
 - 📊 **Live Statistics** - Real-time line/character counts and selection info
 - 🎯 **Type-safe API** - Comprehensive typed bindings for Monaco's JavaScript API
+- 🧠 **Custom IntelliSense** - Register multiple completion providers (static or remote)
 - 🔍 **Find & Replace** - Full programmatic find/replace with regex support
 - 🎭 **Decorations & Markers** - Add highlights, errors, warnings to your code
 - 📡 **Event Streams** - Listen to content changes, selection, focus events
@@ -44,6 +45,10 @@ A Flutter plugin for integrating the Monaco Editor (VS Code's editor) into Flutt
     <td><img src="https://github.com/omar-hanafy/flutter_monaco/blob/main/screenshots/android.jpg?raw=true" alt="Android Screenshot" width="100%"></td>
   </tr>
 </table>
+
+## Known Issues
+
+- **Windows window focus flicker.** When clicking inside the embedded WebView (Monaco) on Windows, the host Flutter window may momentarily lose activation, which disables global keyboard shortcuts until the next click. This is a `flutter_webview_windows`/WebView2 quirk tracked upstream in [jnschulze/flutter-webview-windows#230](https://github.com/jnschulze/flutter-webview-windows/issues/230). We are monitoring that issue and will adopt the upstream fix as soon as it lands. Other platforms are unaffected.
 
 ## Installation
 
@@ -147,6 +152,101 @@ await controller.setTheme(theme);
 - `AutoClosingBehavior.languageDefined` - Use language defaults
 - `AutoClosingBehavior.beforeWhitespace` - Auto-close before whitespace
 - `AutoClosingBehavior.never` - Never auto-close
+
+## Custom IntelliSense Completions
+
+Monaco already knows how to merge results from multiple completion providers. Flutter Monaco now exposes this capability with a tiny, type-safe API that keeps all of the heavy lifting in Dart. Register static keyword/snippet lists or dynamic providers that call your own services.
+
+```dart
+final controller = await MonacoController.create(
+  options: const EditorOptions(
+    language: MonacoLanguage.typescript,
+    theme: MonacoTheme.vsDark,
+  ),
+);
+
+// Static completions (keywords/snippets/etc.)
+await controller.registerStaticCompletions(
+  id: 'keywords',
+  languages: [
+    MonacoLanguage.typescript.id,
+    MonacoLanguage.javascript.id,
+  ],
+  triggerCharacters: const [' ', '.'],
+  items: const [
+    CompletionItem(
+      label: 'pipeline',
+      kind: CompletionItemKind.snippet,
+      detail: 'Begin a pipeline section',
+      documentation: 'Expands to a snippet with placeholders.',
+      insertText: 'pipeline(${1:source}) {\n  ${2:// body}\n}',
+      insertTextRules: {InsertTextRule.insertAsSnippet},
+    ),
+    CompletionItem(
+      label: 'logger.info',
+      kind: CompletionItemKind.method,
+      detail: 'Log a message at INFO level',
+      documentation: 'Simple helper around window.logger',
+    ),
+  ],
+);
+
+// Dynamic completions - call your own API or local data
+await controller.registerCompletionSource(
+  id: 'acme-api',
+  languages: [MonacoLanguage.typescript.id],
+  triggerCharacters: const ['.', '_'],
+  provider: (CompletionRequest request) async {
+    // You get request.language, uri, cursor position, current line, etc.
+    final token = _currentWord(request);
+
+    // Call your service (HTTP, database, anything)
+    final response = await _completionClient.fetch(
+      language: request.language,
+      word: token,
+      contextLine: request.lineText,
+    );
+
+    return CompletionList(
+      suggestions: response.suggestions
+          .map(
+            (result) => CompletionItem(
+              label: result.label,
+              insertText: result.insertText,
+              detail: result.detail,
+              documentation: result.documentation,
+              kind: CompletionItemKind.method,
+              range: request.defaultRange,
+            ),
+          )
+          .toList(),
+      isIncomplete: response.hasMore,
+    );
+  },
+);
+```
+
+Helper to grab the token before the cursor:
+
+```dart
+String _currentWord(CompletionRequest request) {
+  final line = request.lineText ?? '';
+  if (line.isEmpty) return '';
+  final cursor = (request.position.column - 1).clamp(0, line.length);
+  final prefix = line.substring(0, cursor);
+  final match = RegExp(r'([a-zA-Z0-9_.]+)$').firstMatch(prefix);
+  return match?.group(0) ?? '';
+}
+```
+
+`CompletionRequest` includes useful metadata:
+
+- `providerId`, `requestId` – identify the provider and respond to Monaco.
+- `language`, `uri` – the model that triggered the request.
+- `position`, `defaultRange`, `lineText` – cursor info plus the word range Monaco wants you to replace.
+- `triggerKind`, `triggerCharacter` – what caused the completion (manual `Ctrl+Space`, character, etc.).
+
+Need to remove a provider? Call `controller.unregisterCompletionSource(id)` at any time. You can register as many providers as you need—Monaco merges them and sorts via each item's `sortText`.
 
 ## Multiple Editors Example
 

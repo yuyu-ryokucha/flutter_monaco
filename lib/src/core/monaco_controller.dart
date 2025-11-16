@@ -13,6 +13,10 @@ import 'package:flutter_monaco/src/platform/platform_webview.dart';
 import 'package:webview_flutter/webview_flutter.dart' as wf;
 import 'package:webview_windows/webview_windows.dart' as ww;
 
+typedef CompletionProvider = Future<CompletionList> Function(
+  CompletionRequest request,
+);
+
 /// Main controller for a Monaco Editor instance
 class MonacoController {
   MonacoController._(this._bridge, this._webViewController) {
@@ -35,6 +39,8 @@ class MonacoController {
   // Content queuing for pre-ready calls
   String? _queuedValue;
   MonacoLanguage? _queuedLanguage;
+  final Map<String, _RegisteredCompletion> _completionSources = {};
+  bool _completionListenerWired = false;
 
   /// Future that completes when the editor is ready
   Future<void> get onReady => _onReady.future;
@@ -255,6 +261,77 @@ class MonacoController {
     );
   }
 
+  /// Register a completion provider for the given languages.
+  ///
+  /// Provide Monaco language ids (e.g. [MonacoLanguage.typescript.id]) in [languages].
+  Future<String> registerCompletionSource({
+    String? id,
+    required List<String> languages,
+    List<String> triggerCharacters = const [],
+    required CompletionProvider provider,
+  }) async {
+    if (languages.isEmpty) {
+      throw ArgumentError.value(languages, 'languages', 'Cannot be empty');
+    }
+    if (id != null && _completionSources.containsKey(id)) {
+      throw ArgumentError.value(id, 'id', 'Completion source already exists');
+    }
+
+    await _ensureReady();
+    final providerId = id ??
+        'flutter_${DateTime.now().millisecondsSinceEpoch}_${_completionSources.length}';
+    final entry = _RegisteredCompletion(
+      id: providerId,
+      languages: List<String>.from(languages),
+      triggerCharacters: List<String>.from(triggerCharacters),
+      provider: provider,
+    );
+    _completionSources[providerId] = entry;
+
+    final payload = jsonEncode({
+      'id': providerId,
+      'languages': entry.languages,
+      'triggerCharacters': entry.triggerCharacters,
+    });
+
+    try {
+      await _webViewController
+          .runJavaScript('flutterMonaco.registerCompletionSource($payload)');
+    } catch (e) {
+      _completionSources.remove(providerId);
+      rethrow;
+    }
+
+    _wireCompletionListenerOnce();
+    return providerId;
+  }
+
+  /// Register a static list of completion items.
+  Future<String> registerStaticCompletions({
+    String? id,
+    required List<String> languages,
+    List<String> triggerCharacters = const [],
+    required List<CompletionItem> items,
+    bool isIncomplete = false,
+  }) {
+    return registerCompletionSource(
+      id: id,
+      languages: languages,
+      triggerCharacters: triggerCharacters,
+      provider: (_) async =>
+          CompletionList(suggestions: items, isIncomplete: isIncomplete),
+    );
+  }
+
+  /// Removes a completion provider, if registered.
+  Future<void> unregisterCompletionSource(String id) async {
+    _completionSources.remove(id);
+    await _ensureReady();
+    await _webViewController.runJavaScript(
+      'flutterMonaco.unregisterCompletionSource(${jsonEncode(id)})',
+    );
+  }
+
   /// Execute an editor action
   Future<void> executeAction(String actionId, [dynamic args]) async {
     await _ensureReady();
@@ -365,6 +442,7 @@ class MonacoController {
           _onContentChanged.add(json.tryGetBool('isFlush',
                   altKeys: ['flush', 'fullChange'], defaultValue: false) ??
               false);
+          break;
         case 'selectionChanged':
           // Use factory constructor for cleaner conversion
           final selectionMap = json.tryGetMap<String, dynamic>('selection',
@@ -372,13 +450,52 @@ class MonacoController {
           final selection =
               selectionMap != null ? Range.fromJson(selectionMap) : null;
           _onSelectionChanged.add(selection);
+          break;
         case 'focus':
           _onFocus.add(null);
+          break;
         case 'blur':
           _onBlur.add(null);
+          break;
         default:
           break;
       }
+    });
+  }
+
+  void _wireCompletionListenerOnce() {
+    if (_completionListenerWired) return;
+    _completionListenerWired = true;
+
+    _bridge.addRawListener((Map<String, dynamic> json) {
+      if (json.tryGetString('event') != 'completionRequest') return;
+
+      unawaited(() async {
+        await _ensureReady();
+        final request = CompletionRequest.fromJson(json);
+        final registered = _completionSources[request.providerId];
+        const emptySuggestions = {
+          'suggestions': <Map<String, dynamic>>[],
+        };
+
+        Future<void> respond(Map<String, dynamic> payload) {
+          return _webViewController.runJavaScript(
+            'flutterMonaco.complete(${jsonEncode(request.requestId)}, ${jsonEncode(payload)})',
+          );
+        }
+
+        if (registered == null) {
+          await respond(emptySuggestions);
+          return;
+        }
+
+        try {
+          final result = await registered.provider(request);
+          await respond(result.toJson());
+        } catch (_) {
+          await respond(emptySuggestions);
+        }
+      }());
     });
   }
 
@@ -889,4 +1006,18 @@ class MonacoController {
     _bridge.dispose();
     _webViewController.dispose();
   }
+}
+
+class _RegisteredCompletion {
+  _RegisteredCompletion({
+    required this.id,
+    required this.languages,
+    required this.triggerCharacters,
+    required this.provider,
+  });
+
+  final String id;
+  final List<String> languages;
+  final List<String> triggerCharacters;
+  final CompletionProvider provider;
 }

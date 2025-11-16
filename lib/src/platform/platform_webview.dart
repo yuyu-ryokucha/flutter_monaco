@@ -210,18 +210,23 @@ class WindowsWebViewController implements PlatformWebViewController {
       if (result == null) return null;
 
       if (result is String) {
-        try {
-          if (result.startsWith('"') &&
-              result.endsWith('"') &&
-              result.length > 2) {
-            return result.substring(1, result.length - 1);
-          }
-          if (result.startsWith('{') || result.startsWith('[')) {
+        final trimmed = result.trim();
+        final looksLikeJson =
+            (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                (trimmed.startsWith('[') && trimmed.endsWith(']'));
+        if (looksLikeJson) {
+          try {
             return json.decode(result);
+          } catch (_) {
+            // fall through to raw handling
           }
-        } catch (_) {
-          // If parsing fails, return as is
         }
+        if (trimmed.length >= 2 &&
+            trimmed.startsWith('"') &&
+            trimmed.endsWith('"')) {
+          return trimmed.substring(1, trimmed.length - 1);
+        }
+        return result;
       }
 
       return result;

@@ -71,11 +71,16 @@ export 'src/models/monaco_enums.dart'
         RenderWhitespace;
 export 'src/models/monaco_types.dart'
     show
+        CompletionItem,
+        CompletionItemKind,
+        CompletionList,
+        CompletionRequest,
         DecorationOptions,
         EditOperation,
         EditorState,
         FindMatch,
         FindOptions,
+        InsertTextRule,
         LiveStats,
         MarkerData,
         MarkerSeverity,

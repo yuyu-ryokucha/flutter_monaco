@@ -38,6 +38,62 @@ class _MonacoExamplePageState extends State<MonacoExamplePage> {
   String _currentLanguage = 'dart';
   String _currentTheme = 'vs-dark';
 
+  static const List<CompletionItem> _keywordCompletions = [
+    CompletionItem(
+      label: 'todo',
+      kind: CompletionItemKind.snippet,
+      detail: 'Insert a TODO reminder',
+      documentation: 'Adds a TODO comment with placeholders for owner/details.',
+      insertText: '// TODO(\${1:owner}): \${2:details}\n',
+      insertTextRules: {InsertTextRule.insertAsSnippet},
+    ),
+    CompletionItem(
+      label: 'logger.info',
+      kind: CompletionItemKind.method,
+      detail: 'Structured info log',
+      documentation: 'Writes an info log with payload placeholders.',
+      insertText: "logger.info('\${1:message}', data: \${2:payload});",
+      insertTextRules: {InsertTextRule.insertAsSnippet},
+    ),
+    CompletionItem(
+      label: 'defer',
+      kind: CompletionItemKind.keyword,
+      detail: 'Run code after the current frame',
+      documentation: 'Wraps a callback inside Future.microtask.',
+      insertText: 'Future.microtask(() {\n  \${1:// work}\n});',
+      insertTextRules: {InsertTextRule.insertAsSnippet},
+    ),
+  ];
+
+  static const List<_ApiCompletion> _cloudApiCompletions = [
+    _ApiCompletion(
+      label: 'acme.auth.signIn',
+      detail: 'Authenticate a user',
+      documentation: 'Calls POST /v1/auth/sign-in on Acme Cloud.',
+      insertText:
+          "acme.auth.signIn(email: '\${1:email}', password: '\${2:password}')",
+      insertTextRules: {InsertTextRule.insertAsSnippet},
+    ),
+    _ApiCompletion(
+      label: 'acme.storage.listBuckets',
+      detail: 'List storage buckets',
+      documentation: 'Returns the buckets available for the active project.',
+    ),
+    _ApiCompletion(
+      label: 'acme.storage.object',
+      detail: 'Reference a storage object',
+      documentation: 'Reads metadata for a storage object.',
+      kind: CompletionItemKind.property,
+    ),
+    _ApiCompletion(
+      label: 'acme.analytics.logEvent',
+      detail: 'Emit analytics event',
+      documentation: 'Log a custom event with attributes.',
+      insertText: "acme.analytics.logEvent('\${1:event}', data: \${2:{}});",
+      insertTextRules: {InsertTextRule.insertAsSnippet},
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +113,7 @@ class _MonacoExamplePageState extends State<MonacoExamplePage> {
       );
 
       await controller.setValue(_sampleCode);
+      await _registerCompletionSources(controller);
 
       setState(() {
         _controller = controller;
@@ -68,6 +125,49 @@ class _MonacoExamplePageState extends State<MonacoExamplePage> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _registerCompletionSources(MonacoController controller) async {
+    await controller.registerStaticCompletions(
+      id: 'keywords',
+      languages: [
+        MonacoLanguage.dart.id,
+        MonacoLanguage.javascript.id,
+      ],
+      triggerCharacters: const [' ', '.'],
+      items: _keywordCompletions,
+    );
+
+    await controller.registerCompletionSource(
+      id: 'acme-api',
+      languages: [MonacoLanguage.dart.id],
+      triggerCharacters: const ['.', '_'],
+      provider: (request) async {
+        final token = _extractCurrentWord(request);
+
+        // Simulate a remote lookup
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+
+        final suggestions = _cloudApiCompletions
+            .where((entry) => token.isEmpty || entry.label.startsWith(token))
+            .map((entry) => entry.toCompletionItem(request.defaultRange))
+            .toList();
+
+        return CompletionList(
+          suggestions: suggestions,
+          isIncomplete: token.isEmpty,
+        );
+      },
+    );
+  }
+
+  String _extractCurrentWord(CompletionRequest request) {
+    final line = request.lineText ?? '';
+    if (line.isEmpty) return '';
+    final cursor = (request.position.column - 1).clamp(0, line.length);
+    final prefix = line.substring(0, cursor);
+    final match = RegExp(r'([a-zA-Z0-9_.]+)$').firstMatch(prefix);
+    return match?.group(0) ?? '';
   }
 
   @override
@@ -287,4 +387,36 @@ void main() {
   }
 }
 ''';
+}
+
+class _ApiCompletion {
+  const _ApiCompletion({
+    required this.label,
+    required this.detail,
+    required this.documentation,
+    this.insertText,
+    this.kind = CompletionItemKind.method,
+    this.insertTextRules,
+  });
+
+  final String label;
+  final String detail;
+  final String documentation;
+  final String? insertText;
+  final CompletionItemKind kind;
+  final Set<InsertTextRule>? insertTextRules;
+
+  CompletionItem toCompletionItem(Range defaultRange) {
+    return CompletionItem(
+      label: label,
+      insertText: insertText ?? label,
+      kind: kind,
+      detail: detail,
+      documentation: documentation,
+      sortText: '100_$label',
+      filterText: label,
+      range: defaultRange,
+      insertTextRules: insertTextRules,
+    );
+  }
 }

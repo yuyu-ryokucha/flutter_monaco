@@ -424,6 +424,189 @@ sealed class EditOperation with _$EditOperation {
   }
 }
 
+/// Represents a completion entry Monaco can show
+@Freezed(fromJson: false, toJson: false)
+sealed class CompletionItem with _$CompletionItem {
+  const factory CompletionItem({
+    required String label,
+    String? insertText,
+    CompletionItemKind? kind,
+    String? detail,
+    String? documentation,
+    String? sortText,
+    String? filterText,
+    Range? range,
+    List<String>? commitCharacters,
+    Set<InsertTextRule>? insertTextRules,
+  }) = _CompletionItem;
+
+  const CompletionItem._();
+
+  factory CompletionItem.fromJson(Map<String, dynamic> json) => CompletionItem(
+        label: json.getString('label', defaultValue: ''),
+        insertText: json.tryGetString('insertText'),
+        kind: CompletionItemKind.maybeFromJsonValue(
+          json.tryGetString('kind'),
+        ),
+        detail: json.tryGetString('detail'),
+        documentation: json.tryGetString('documentation'),
+        sortText: json.tryGetString('sortText'),
+        filterText: json.tryGetString('filterText'),
+        range: json.tryParse('range', Range.fromJson),
+        commitCharacters: json.tryGetList<String>('commitCharacters'),
+        insertTextRules: json
+            .tryGetList<String>('insertTextRules')
+            ?.map(InsertTextRule.fromJsonValue)
+            .toSet(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        if (insertText != null) 'insertText': insertText,
+        if (kind != null) 'kind': kind!.jsonValue,
+        if (detail != null) 'detail': detail,
+        if (documentation != null) 'documentation': documentation,
+        if (sortText != null) 'sortText': sortText,
+        if (filterText != null) 'filterText': filterText,
+        if (range != null) 'range': range!.toJson(),
+        if (commitCharacters != null) 'commitCharacters': commitCharacters,
+        if (insertTextRules != null && insertTextRules!.isNotEmpty)
+          'insertTextRules':
+              insertTextRules!.map((rule) => rule.jsonValue).toList(),
+      };
+}
+
+/// Completion result returned to Monaco
+@Freezed(fromJson: false, toJson: false)
+sealed class CompletionList with _$CompletionList {
+  const factory CompletionList({
+    required List<CompletionItem> suggestions,
+    @Default(false) bool isIncomplete,
+  }) = _CompletionList;
+
+  const CompletionList._();
+
+  factory CompletionList.fromJson(Map<String, dynamic> json) => CompletionList(
+        suggestions: json
+            .getList<Map<String, dynamic>>('suggestions', defaultValue: [])
+            .map(CompletionItem.fromJson)
+            .toList(),
+        isIncomplete: json.getBool('isIncomplete', defaultValue: false),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'suggestions': suggestions.map((item) => item.toJson()).toList(),
+        'isIncomplete': isIncomplete,
+      };
+}
+
+/// Completion request payload from JS -> Flutter
+@Freezed(fromJson: false, toJson: false)
+sealed class CompletionRequest with _$CompletionRequest {
+  const factory CompletionRequest({
+    required String providerId,
+    required String requestId,
+    required String language,
+    Uri? uri,
+    required Position position,
+    required Range defaultRange,
+    String? lineText,
+    int? triggerKind,
+    String? triggerCharacter,
+  }) = _CompletionRequest;
+
+  const CompletionRequest._();
+
+  factory CompletionRequest.fromJson(Map<String, dynamic> json) =>
+      CompletionRequest(
+        providerId: json.getString('providerId', defaultValue: ''),
+        requestId: json.getString('requestId', defaultValue: ''),
+        language: json.getString('language', defaultValue: 'plaintext'),
+        uri: json.tryGetUri('uri'),
+        position: Position.fromJson(
+          json.getMap('position', defaultValue: const <String, dynamic>{}),
+        ),
+        defaultRange: Range.fromJson(
+          json.getMap('defaultRange', defaultValue: const <String, dynamic>{}),
+        ),
+        lineText: json.tryGetString('lineText'),
+        triggerKind: json.tryGetInt('triggerKind'),
+        triggerCharacter: json.tryGetString('triggerCharacter'),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'providerId': providerId,
+        'requestId': requestId,
+        'language': language,
+        if (uri != null) 'uri': uri.toString(),
+        'position': position.toJson(),
+        'defaultRange': defaultRange.toJson(),
+        if (lineText != null) 'lineText': lineText,
+        if (triggerKind != null) 'triggerKind': triggerKind,
+        if (triggerCharacter != null) 'triggerCharacter': triggerCharacter,
+      };
+}
+
+/// Monaco completion item kinds (string based for stability)
+enum CompletionItemKind {
+  text('Text'),
+  method('Method'),
+  functionType('Function'),
+  constructor('Constructor'),
+  field('Field'),
+  variable('Variable'),
+  classType('Class'),
+  interfaceType('Interface'),
+  module('Module'),
+  property('Property'),
+  unit('Unit'),
+  value('Value'),
+  enumType('Enum'),
+  keyword('Keyword'),
+  snippet('Snippet'),
+  color('Color'),
+  file('File'),
+  reference('Reference'),
+  folder('Folder'),
+  enumMember('EnumMember'),
+  constant('Constant'),
+  struct('Struct'),
+  event('Event'),
+  operatorType('Operator'),
+  typeParameter('TypeParameter');
+
+  const CompletionItemKind(this.jsonValue);
+  final String jsonValue;
+
+  static CompletionItemKind fromJsonValue(String value) {
+    return maybeFromJsonValue(value) ?? CompletionItemKind.text;
+  }
+
+  static CompletionItemKind? maybeFromJsonValue(String? value) {
+    if (value == null) return null;
+    for (final kind in CompletionItemKind.values) {
+      if (kind.jsonValue == value) return kind;
+    }
+    return null;
+  }
+}
+
+/// Flags controlling how insertText should be handled
+enum InsertTextRule {
+  keepWhitespace('KeepWhitespace'),
+  insertAsSnippet('InsertAsSnippet');
+
+  const InsertTextRule(this.jsonValue);
+  final String jsonValue;
+
+  static InsertTextRule fromJsonValue(String value) {
+    return InsertTextRule.values.firstWhere(
+      (rule) => rule.jsonValue == value,
+      orElse: () => InsertTextRule.insertAsSnippet,
+    );
+  }
+}
+
 /// Find match options
 @freezed
 sealed class FindOptions with _$FindOptions {

@@ -11,6 +11,11 @@ class WebViewController implements PlatformWebViewController {
   }
 
   @override
+  Future<void> enableJavaScript() {
+    throw UnsupportedError('stub');
+  }
+
+  @override
   Future<Object?> runJavaScript(String script) {
     throw UnsupportedError('stub');
   }
@@ -30,6 +35,11 @@ class WebViewController implements PlatformWebViewController {
 
   @override
   Future<Object?> removeJavaScriptChannel(String name) {
+    throw UnsupportedError('stub');
+  }
+
+  @override
+  Future<void> setBackgroundColor(Color color) {
     throw UnsupportedError('stub');
   }
 

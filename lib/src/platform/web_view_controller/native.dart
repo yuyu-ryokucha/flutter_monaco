@@ -119,16 +119,20 @@ class FlutterWebViewController extends WebViewController {
     );
   }
 
-  /// Sets the background color of the WebView.
-  Future<Object?> setBackgroundColor(Color color) async {
+  @override
+  Future<void> setBackgroundColor(Color color) async {
     await _controller.setBackgroundColor(color);
-    return null;
   }
 
   /// Loads a Flutter asset into the WebView.
   Future<Object?> loadFlutterAsset(String asset) async {
     await _controller.loadFlutterAsset(asset);
     return null;
+  }
+
+  @override
+  Future<void> enableJavaScript() async {
+    await _controller.setJavaScriptMode(wf.JavaScriptMode.unrestricted);
   }
 
   @override
@@ -279,6 +283,14 @@ class WindowsWebViewController extends WebViewController {
   }
 
   @override
+  Future<void> setBackgroundColor(Color color) async {
+    await _controller.setBackgroundColor(color);
+  }
+
+  @override
+  Future<void> enableJavaScript() async {}
+
+  @override
   Future<Object?> runJavaScript(String script) async {
     try {
       return await _controller.executeScript(script);
@@ -289,33 +301,10 @@ class WindowsWebViewController extends WebViewController {
   }
 
   @override
-  Future<dynamic> runJavaScriptReturningResult(String script) async {
+  Future<Object?> runJavaScriptReturningResult(String script) async {
     try {
       final result = await _controller.executeScript(script);
-
-      if (result == null) return null;
-
-      if (result is String) {
-        final trimmed = result.trim();
-        final looksLikeJson =
-            (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
-                (trimmed.startsWith('[') && trimmed.endsWith(']'));
-        if (looksLikeJson) {
-          try {
-            return json.decode(result);
-          } catch (_) {
-            // fall through to raw handling
-          }
-        }
-        if (trimmed.length >= 2 &&
-            trimmed.startsWith('"') &&
-            trimmed.endsWith('"')) {
-          return trimmed.substring(1, trimmed.length - 1);
-        }
-        return result;
-      }
-
-      return result;
+      return parseWindowsScriptResult(result);
     } catch (e) {
       debugPrint('[WindowsWebViewController] JS result error: $e');
       rethrow;

@@ -111,6 +111,15 @@ class WebViewController implements PlatformWebViewController {
   }
 
   @override
+  Future<void> setBackgroundColor(Color color) async {
+    _iframe?.style.backgroundColor =
+        'rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${color.a * 255})';
+  }
+
+  @override
+  Future<void> enableJavaScript() async {}
+
+  @override
   Future<Object?> runJavaScript(String script) async {
     if (_disposed) return null;
 

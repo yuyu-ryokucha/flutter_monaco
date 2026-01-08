@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_monaco/src/platform/platform_webview.dart';
 import 'package:flutter_monaco/src/platform/web_view_controller/web_view_controller.dart'
@@ -8,10 +10,19 @@ export 'platform_webview_interface.dart';
 
 /// Factory for creating platform-specific controllers
 class PlatformWebViewFactory {
+  /// Overrides controller creation in tests.
+  @visibleForTesting
+  static PlatformWebViewController Function()? debugCreateOverride;
+
   /// Creates a new platform web view controller.
   ///
   /// Returns the appropriate platform web view controller based on the platform.
   static PlatformWebViewController createController() {
+    final override = debugCreateOverride;
+    if (override != null) {
+      return override();
+    }
+
     return WebViewController();
   }
 }
@@ -45,6 +56,9 @@ class WebViewController implements PlatformWebViewController {
   }
 
   @override
+  Future<void> enableJavaScript() => _controller.enableJavaScript();
+
+  @override
   Future<Object?> addJavaScriptChannel(
     String name,
     void Function(String p1) onMessage,
@@ -66,4 +80,28 @@ class WebViewController implements PlatformWebViewController {
   Future<Object?> runJavaScriptReturningResult(String script) {
     return _controller.runJavaScriptReturningResult(script);
   }
+
+  @override
+  Future<void> setBackgroundColor(Color color) =>
+      _controller.setBackgroundColor(color);
+}
+
+/// Parses WebView2 ExecuteScript results, preserving JSON-like strings.
+Object? parseWindowsScriptResult(Object? result) {
+  if (result is! String) return result;
+
+  final trimmed = result.trim();
+  if (trimmed.isEmpty) return result;
+
+  if (trimmed == 'null') return null;
+
+  if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      return json.decode(trimmed);
+    } catch (_) {
+      return trimmed.substring(1, trimmed.length - 1);
+    }
+  }
+
+  return result;
 }

@@ -7,6 +7,9 @@ abstract class PlatformWebViewController {
   /// Gets the widget for the WebView.
   Widget get widget;
 
+  /// Enable unrestricted JavaScript execution if needed.
+  Future<void> enableJavaScript();
+
   /// Execute JavaScript code without expecting a return value
   Future<Object?> runJavaScript(String script);
 
@@ -36,4 +39,7 @@ abstract class PlatformWebViewController {
     String? customCss,
     bool allowCdnFonts = false,
   });
+
+  /// Set the background color of the WebView container
+  Future<void> setBackgroundColor(Color color);
 }

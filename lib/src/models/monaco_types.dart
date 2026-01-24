@@ -1,4 +1,4 @@
-import 'package:flutter_helper_utils/flutter_helper_utils.dart';
+import 'package:convert_object/convert_object.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'monaco_types.freezed.dart';
@@ -23,12 +23,12 @@ sealed class Position with _$Position {
     return Position(
       line: json.getInt(
         'lineNumber',
-        altKeys: ['line', 'ln', 'row'],
+        alternativeKeys: ['line', 'ln', 'row'],
         defaultValue: 1,
       ),
       column: json.getInt(
         'column',
-        altKeys: ['col', 'character', 'ch'],
+        alternativeKeys: ['col', 'character', 'ch'],
         defaultValue: 1,
       ),
     );
@@ -113,22 +113,22 @@ sealed class Range with _$Range {
     return Range(
       startLine: json.getInt(
         'startLineNumber',
-        altKeys: ['startLine', 'start_line', 'from_line'],
+        alternativeKeys: ['startLine', 'start_line', 'from_line'],
         defaultValue: 1,
       ),
       startColumn: json.getInt(
         'startColumn',
-        altKeys: ['startCol', 'start_column', 'from_column'],
+        alternativeKeys: ['startCol', 'start_column', 'from_column'],
         defaultValue: 1,
       ),
       endLine: json.getInt(
         'endLineNumber',
-        altKeys: ['endLine', 'end_line', 'to_line'],
+        alternativeKeys: ['endLine', 'end_line', 'to_line'],
         defaultValue: 1,
       ),
       endColumn: json.getInt(
         'endColumn',
-        altKeys: ['endCol', 'end_column', 'to_column'],
+        alternativeKeys: ['endCol', 'end_column', 'to_column'],
         defaultValue: 1,
       ),
     );
@@ -269,14 +269,14 @@ sealed class MarkerData with _$MarkerData {
       range: Range.fromJson(json),
       message: json.getString(
         'message',
-        altKeys: ['msg', 'text'],
+        alternativeKeys: ['msg', 'text'],
         defaultValue: '',
       ),
       severity: MarkerSeverity.fromValue(
         json.getInt('severity', defaultValue: 2),
       ),
-      code: json.tryGetString('code', altKeys: ['errorCode']),
-      source: json.tryGetString('source', altKeys: ['src']),
+      code: json.tryGetString('code', alternativeKeys: ['errorCode']),
+      source: json.tryGetString('source', alternativeKeys: ['src']),
       tags: json.tryGetList<String>('tags'),
       relatedInformation: json
           .tryGetList<Map<String, dynamic>>('relatedInformation')
@@ -328,7 +328,7 @@ sealed class RelatedInformation with _$RelatedInformation {
     return RelatedInformation(
       resource: json.getUri(
         'resource',
-        altKeys: ['uri', 'file'],
+        alternativeKeys: ['uri', 'file'],
         defaultValue: Uri.parse('file:///unknown'),
       ),
       range: Range.fromJson(json),
@@ -475,7 +475,7 @@ sealed class EditOperation with _$EditOperation {
       range: json.parse('range', Range.fromJson),
       text: json.getString(
         'text',
-        altKeys: ['newText', 'value'],
+        alternativeKeys: ['newText', 'value'],
         defaultValue: '',
       ),
       forceMoveMarkers: json.tryGetBool('forceMoveMarkers'),
@@ -838,23 +838,23 @@ sealed class FindOptions with _$FindOptions {
     return FindOptions(
       isRegex: json.getBool(
         'isRegex',
-        altKeys: ['regex', 'useRegex'],
+        alternativeKeys: ['regex', 'useRegex'],
         defaultValue: false,
       ),
       matchCase: json.getBool(
         'matchCase',
-        altKeys: ['caseSensitive'],
+        alternativeKeys: ['caseSensitive'],
         defaultValue: false,
       ),
       wholeWord: json.getBool(
         'wholeWord',
-        altKeys: ['word'],
+        alternativeKeys: ['word'],
         defaultValue: false,
       ),
       searchOnlyEditableRange: json.tryGetBool('searchOnlyEditableRange'),
       limitResultCount: json.tryGetInt(
         'limitResultCount',
-        altKeys: ['limit', 'maxResults'],
+        alternativeKeys: ['limit', 'maxResults'],
       ),
     );
   }
@@ -922,7 +922,7 @@ sealed class LiveStats with _$LiveStats {
       lineCount: (
         value: json.getInt(
           'lineCount',
-          altKeys: ['lines', 'totalLines', 'linesCount'],
+          alternativeKeys: ['lines', 'totalLines', 'linesCount'],
           defaultValue: 0,
         ),
         label: 'Ln',
@@ -930,7 +930,7 @@ sealed class LiveStats with _$LiveStats {
       charCount: (
         value: json.getInt(
           'charCount',
-          altKeys: ['chars', 'characters', 'totalChars'],
+          alternativeKeys: ['chars', 'characters', 'totalChars'],
           defaultValue: 0,
         ),
         label: 'Ch',
@@ -938,7 +938,7 @@ sealed class LiveStats with _$LiveStats {
       selectedLines: (
         value: json.getInt(
           'selLines',
-          altKeys: ['selectedLines', 'selectionLines'],
+          alternativeKeys: ['selectedLines', 'selectionLines'],
           defaultValue: 0,
         ),
         label: 'Sel Ln',
@@ -946,7 +946,11 @@ sealed class LiveStats with _$LiveStats {
       selectedCharacters: (
         value: json.getInt(
           'selChars',
-          altKeys: ['selectedChars', 'selectionLength', 'selectedCharacters'],
+          alternativeKeys: [
+            'selectedChars',
+            'selectionLength',
+            'selectedCharacters'
+          ],
           defaultValue: 0,
         ),
         label: 'Sel Ch',
@@ -954,7 +958,7 @@ sealed class LiveStats with _$LiveStats {
       caretCount: (
         value: json.getInt(
           'caretCount',
-          altKeys: ['cursors', 'cursorCount', 'carets'],
+          alternativeKeys: ['cursors', 'cursorCount', 'carets'],
           defaultValue: 1,
         ),
         label: 'Cursors',
@@ -962,7 +966,7 @@ sealed class LiveStats with _$LiveStats {
       cursorPosition: _extractCursorPosition(json),
       language: json.tryGetString(
         'language',
-        altKeys: ['lang', 'mode', 'languageId'],
+        alternativeKeys: ['lang', 'mode', 'languageId'],
       ),
     );
   }
@@ -971,11 +975,11 @@ sealed class LiveStats with _$LiveStats {
       Map<String, dynamic> json) {
     final line = json.tryGetInt(
       'cursorLine',
-      altKeys: ['line', 'currentLine'],
+      alternativeKeys: ['line', 'currentLine'],
     );
     final column = json.tryGetInt(
       'cursorColumn',
-      altKeys: ['column', 'col', 'currentColumn'],
+      alternativeKeys: ['column', 'col', 'currentColumn'],
     );
 
     if (line != null && column != null) {
@@ -1049,26 +1053,26 @@ sealed class EditorState with _$EditorState {
     return EditorState(
       content: json.getString(
         'content',
-        altKeys: ['text', 'value'],
+        alternativeKeys: ['text', 'value'],
         defaultValue: '',
       ),
       selection: json.tryParse('selection', Range.fromJson),
       cursorPosition: json.tryParse('cursorPosition', Position.fromJson),
       lineCount: json.getInt(
         'lineCount',
-        altKeys: ['lines', 'totalLines'],
+        alternativeKeys: ['lines', 'totalLines'],
         defaultValue: 0,
       ),
       hasUnsavedChanges: json.getBool(
         'hasUnsavedChanges',
-        altKeys: ['dirty', 'modified', 'isDirty'],
+        alternativeKeys: ['dirty', 'modified', 'isDirty'],
         defaultValue: false,
       ),
       language: json.tryGetString(
         'language',
-        altKeys: ['lang', 'mode', 'languageId'],
+        alternativeKeys: ['lang', 'mode', 'languageId'],
       ),
-      theme: json.tryGetString('theme', altKeys: ['themeName']),
+      theme: json.tryGetString('theme', alternativeKeys: ['themeName']),
       stats: json.tryParse('stats', LiveStats.fromJson),
     );
   }
@@ -1111,7 +1115,7 @@ sealed class FindMatch with _$FindMatch {
   factory FindMatch.fromJson(Map<String, dynamic> json) {
     return FindMatch(
       range: json.parse('range', Range.fromJson),
-      match: json.tryGetString('match', altKeys: ['text', 'value']),
+      match: json.tryGetString('match', alternativeKeys: ['text', 'value']),
     );
   }
 

@@ -1,50 +1,136 @@
-import 'package:flutter_helper_utils/flutter_helper_utils.dart';
+import 'package:convert_object/convert_object.dart';
 import 'package:flutter_monaco/flutter_monaco.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'editor_options.freezed.dart';
 
-/// Options for configuring the Monaco Editor
+/// Options for configuring the Monaco Editor behavior and appearance.
 @freezed
 sealed class EditorOptions with _$EditorOptions {
   const factory EditorOptions({
+    /// The initial syntax highlighting language.
+    ///
+    /// Defaults to [MonacoLanguage.dart].
+    /// Changing this value on an active editor triggers a re-tokenization.
     @Default(MonacoLanguage.dart) MonacoLanguage language,
+
+    /// The color theme of the editor.
+    ///
+    /// Defaults to [MonacoTheme.vsDark].
     @Default(MonacoTheme.vsDark) MonacoTheme theme,
+
+    /// The font size in pixels.
     @Default(14) double fontSize,
+
+    /// The font family to use.
+    ///
+    /// Accepts a CSS `font-family` string (e.g. "Fira Code, monospace").
     @Default('Consolas, "Courier New", monospace') String fontFamily,
+
+    /// The line height as a multiple of the font size.
     @Default(1.4) double lineHeight,
+
+    /// Controls whether long lines should wrap to the next line.
+    ///
+    /// If `true`, lines will wrap at the viewport width.
     @Default(true) bool wordWrap,
+
+    /// Controls whether the minimap (code overview) is shown.
     @Default(false) bool minimap,
+
+    /// Controls whether line numbers are displayed in the gutter.
     @Default(true) bool lineNumbers,
+
+    /// A list of column numbers where vertical rulers should be rendered.
+    ///
+    /// Useful for enforcing line length limits (e.g. `[80, 120]`).
     @Default([]) List<int> rulers,
+
+    /// The number of spaces a tab character is equal to.
+    ///
+    /// Also controls indentation size if [insertSpaces] is true.
     @Default(4) int tabSize,
+
+    /// If `true`, pressing `Tab` inserts spaces instead of a tab character.
     @Default(true) bool insertSpaces,
+
+    /// If `true`, prevents the user from editing the content.
     @Default(false) bool readOnly,
+
+    /// If `true`, the editor will automatically resize to fit its container.
     @Default(true) bool automaticLayout,
+
+    /// Optional padding for the editor content (top, bottom).
     Map<String, int>? padding,
+
+    /// If `true`, allows scrolling beyond the last line of the file.
     @Default(true) bool scrollBeyondLastLine,
+
+    /// If `true`, enables smooth scrolling animation.
     @Default(false) bool smoothScrolling,
+
+    /// Controls the cursor blinking animation style.
     @Default(CursorBlinking.blink) CursorBlinking cursorBlinking,
+
+    /// Controls the visual style of the cursor (line, block, etc.).
     @Default(CursorStyle.line) CursorStyle cursorStyle,
+
+    /// Controls how whitespace characters are rendered.
     @Default(RenderWhitespace.selection) RenderWhitespace renderWhitespace,
+
+    /// If `true`, enables colorization of matching brackets.
     @Default(true) bool bracketPairColorization,
+
+    /// Controls automatic closing of brackets (e.g. `{` -> `{}`).
     @Default(AutoClosingBehavior.languageDefined)
     AutoClosingBehavior autoClosingBrackets,
+
+    /// Controls automatic closing of quotes (e.g. `"` -> `""`).
     @Default(AutoClosingBehavior.languageDefined)
     AutoClosingBehavior autoClosingQuotes,
+
+    /// If `true`, automatically formats text when pasted.
     @Default(false) bool formatOnPaste,
+
+    /// If `true`, automatically formats text as you type.
     @Default(false) bool formatOnType,
+
+    /// If `true`, shows the suggestion widget while typing.
     @Default(true) bool quickSuggestions,
+
+    /// If `true`, enables font ligatures (requires a compatible font like Fira Code).
     @Default(false) bool fontLigatures,
+
+    /// If `true`, shows parameter hints when typing function calls.
     @Default(true) bool parameterHints,
+
+    /// If `true`, shows hover details when the mouse is over a symbol.
     @Default(true) bool hover,
+
+    /// If `true`, enables the default context menu (right-click).
     @Default(true) bool contextMenu,
+
+    /// If `true`, allows zooming the font size with Ctrl + Mouse Wheel.
     @Default(false) bool mouseWheelZoom,
+
+    /// If `true`, renders selections with rounded corners.
     @Default(true) bool roundedSelection,
+
+    /// If `true`, highlights other occurrences of the selected text.
     @Default(true) bool selectionHighlight,
+
+    /// If `true`, draws a border around the overview ruler.
     @Default(true) bool overviewRulerBorder,
+
+    /// If `true`, renders control characters.
     @Default(false) bool renderControlCharacters,
+
+    /// If `true`, disables the "layer hinting" optimization.
+    ///
+    /// Try setting this to `true` if you see rendering artifacts on some platforms.
     @Default(false) bool disableLayerHinting,
+
+    /// If `true`, disables monospace font optimizations.
     @Default(false) bool disableMonospaceOptimizations,
   }) = _EditorOptions;
 

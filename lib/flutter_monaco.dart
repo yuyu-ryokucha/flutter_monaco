@@ -10,7 +10,7 @@
 /// - **Multiple Themes** - VS Light, VS Dark, High Contrast themes
 /// - **Rich API** - Full programmatic control over the editor
 /// - **Multi-Editor Support** - Run multiple independent editor instances
-/// - **Cross-Platform** - Works on Android, iOS, macOS, and Windows
+/// - **Cross-Platform** - Works on Android, iOS, macOS, Windows, and Web
 ///
 /// ## Quick Start
 ///
@@ -43,7 +43,7 @@
 /// - ✅ iOS (11.0+)
 /// - ✅ macOS (10.13+)
 /// - ✅ Windows (10 version 1809+)
-/// - ❌ Web (not supported)
+/// - ✅ Web (supported)
 /// - ❌ Linux (not supported)
 ///
 /// ## Additional Resources

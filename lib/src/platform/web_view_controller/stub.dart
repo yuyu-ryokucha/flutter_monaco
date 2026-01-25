@@ -63,6 +63,11 @@ class WebViewController implements PlatformWebViewController {
   }
 
   @override
+  Future<void> setInteractionEnabled(bool enabled) {
+    throw UnsupportedError('WebView not supported on this platform');
+  }
+
+  @override
   void dispose() {
     throw UnsupportedError('WebView not supported on this platform');
   }

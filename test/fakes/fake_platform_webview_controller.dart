@@ -41,6 +41,9 @@ class FakePlatformWebViewController implements PlatformWebViewController {
   /// Whether [dispose] was called.
   bool disposed = false;
 
+  /// Whether interaction is currently enabled.
+  bool interactionEnabled = true;
+
   /// Queue of results to return for specific scripts.
   final Map<String, Queue<Object?>> _resultsQueue = {};
 
@@ -100,6 +103,15 @@ class FakePlatformWebViewController implements PlatformWebViewController {
       throw StateError('Cannot set background color on disposed controller');
     }
     executed.add('SET_BACKGROUND_COLOR:$color');
+  }
+
+  @override
+  Future<void> setInteractionEnabled(bool enabled) async {
+    if (disposed) {
+      throw StateError('Cannot set interaction on disposed controller');
+    }
+    interactionEnabled = enabled;
+    executed.add('SET_INTERACTION:$enabled');
   }
 
   @override
@@ -204,6 +216,7 @@ class FakePlatformWebViewController implements PlatformWebViewController {
     initialized = false;
     jsEnabled = false;
     disposed = false;
+    interactionEnabled = true;
     loadedFiles.clear();
   }
 

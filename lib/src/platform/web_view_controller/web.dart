@@ -46,6 +46,7 @@ import 'package:web/web.dart' as web;
 class WebViewController implements PlatformWebViewController {
   final Map<String, void Function(String)> _channels = {};
   bool _disposed = false;
+  bool _interactionEnabled = true;
 
   final Completer<void> _readyCompleter = Completer<void>();
   bool _isReady = false;
@@ -75,6 +76,7 @@ class WebViewController implements PlatformWebViewController {
       ..style.height = '100%'
       ..style.border = 'none'
       ..allow = 'clipboard-read; clipboard-write';
+    _applyInteractionEnabled();
 
     // Register the view factory.
     ui_web.platformViewRegistry.registerViewFactory(_viewId!, (_) => _iframe!);
@@ -142,8 +144,10 @@ class WebViewController implements PlatformWebViewController {
     }
 
     // When Monaco reports focus, unfocus Flutter widgets and ensure Monaco keeps focus.
-    if (message.contains('"event":"focus"') ||
-        message.contains('"event": "focus"')) {
+    // This is gated by _interactionEnabled to avoid focus stealing when interaction is disabled.
+    if (_interactionEnabled &&
+        (message.contains('"event":"focus"') ||
+            message.contains('"event": "focus"'))) {
       // Unfocus any Flutter widget
       FocusManager.instance.primaryFocus?.unfocus();
       // Use Monaco's forceFocus to ensure editor keeps focus
@@ -176,6 +180,39 @@ class WebViewController implements PlatformWebViewController {
     final g = (color.g * 255).round();
     final b = (color.b * 255).round();
     _iframe?.style.backgroundColor = 'rgba($r, $g, $b, ${color.a})';
+  }
+
+  void _applyInteractionEnabled() {
+    final iframe = _iframe;
+    if (iframe == null) return;
+    iframe.style.pointerEvents = _interactionEnabled ? 'auto' : 'none';
+  }
+
+  @override
+  Future<void> setInteractionEnabled(bool enabled) async {
+    if (_disposed) return;
+    _interactionEnabled = enabled;
+    _applyInteractionEnabled();
+
+    if (!enabled) {
+      // Best-effort: blur Monaco's textarea so keyboard input doesn't keep going to the editor.
+      try {
+        _iframe?.contentWindow?.callMethod(
+          'eval'.toJS,
+          '''
+            (function() {
+              try {
+                var ta = document.querySelector('textarea.inputarea');
+                if (ta && ta.blur) ta.blur();
+                var ae = document.activeElement;
+                if (ae && ae.blur) ae.blur();
+              } catch (e) {}
+            })();
+          '''
+              .toJS,
+        );
+      } catch (_) {}
+    }
   }
 
   @override

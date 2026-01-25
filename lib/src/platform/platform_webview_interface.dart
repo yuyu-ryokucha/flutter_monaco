@@ -123,4 +123,14 @@ abstract class PlatformWebViewController {
   /// content doesn't fill the entire view. Set this to match your app's
   /// theme for a seamless appearance.
   Future<void> setBackgroundColor(Color color);
+
+  /// Toggles whether the WebView intercepts pointer events.
+  ///
+  /// On Web, this is used to allow Flutter overlays (like dialogs) to
+  /// receive pointer events even when they overlap the Monaco iframe.
+  /// When disabled, `pointer-events: none` is applied to the iframe.
+  ///
+  /// On native platforms, this may be a no-op or implemented via
+  /// platform-specific pointer transparency APIs.
+  Future<void> setInteractionEnabled(bool enabled);
 }

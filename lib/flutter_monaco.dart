@@ -54,9 +54,9 @@
 /// - [Issue Tracker](https://github.com/omar-hanafy/flutter_monaco/issues)
 library;
 
+export 'src/core/monaco_actions.dart' show MonacoAction;
 // Core exports
 export 'src/core/monaco_assets.dart' show MonacoAssets;
-export 'src/core/monaco_actions.dart' show MonacoAction;
 export 'src/core/monaco_constants.dart' show MonacoConstants;
 export 'src/core/monaco_controller.dart' show MonacoController;
 // Model exports
@@ -91,3 +91,4 @@ export 'src/models/monaco_types.dart'
 // Widget exports
 export 'src/widgets/monaco_editor_view.dart' show MonacoEditor;
 export 'src/widgets/monaco_focus_guard.dart' show MonacoFocusGuard;
+export 'src/widgets/monaco_route_observer.dart' show MonacoRouteObserver;

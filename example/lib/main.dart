@@ -11,7 +11,7 @@ void main() {
       darkTheme: ThemeData.dark(),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Monaco Editor'),
+          title: const Text('Flutter Monaco Editor'),
         ),
         body: const SafeArea(
           child: MonacoEditor(

@@ -65,6 +65,7 @@ class MonacoEditor extends StatefulWidget {
     this.showStatusBar = false,
     this.statusBarBuilder,
     this.backgroundColor,
+    this.interactionEnabled = true,
     this.padding,
     this.constraints,
   });
@@ -167,6 +168,12 @@ class MonacoEditor extends StatefulWidget {
   /// Visible while the editor is loading or if the editor has padding.
   final Color? backgroundColor;
 
+  /// Whether the editor intercepts pointer events.
+  ///
+  /// Set this to `false` when displaying Flutter overlays (dialogs, dropdowns)
+  /// over the editor on Web to ensure the overlays receive pointer events.
+  final bool interactionEnabled;
+
   /// Padding applied around the editor WebView.
   final EdgeInsetsGeometry? padding;
 
@@ -235,6 +242,12 @@ class _MonacoEditorState extends State<MonacoEditor> {
       return;
     }
 
+    if (widget.interactionEnabled != oldWidget.interactionEnabled &&
+        _controller != null) {
+      _ignoreAsync(
+          _controller!.setInteractionEnabled(widget.interactionEnabled));
+    }
+
     if (_connectionState != _ConnectionState.ready || _controller == null) {
       return;
     }
@@ -289,6 +302,11 @@ class _MonacoEditorState extends State<MonacoEditor> {
       setState(() => _controller = controller);
       _ownsController = ownsController;
 
+      await _controller!.setInteractionEnabled(widget.interactionEnabled);
+      if (!_isBootstrapCurrent(bootstrapToken)) {
+        return;
+      }
+
       // Wait for the underlying web view to be ready.
       await _controller!.onReady;
       if (!_isBootstrapCurrent(bootstrapToken)) {
@@ -299,7 +317,6 @@ class _MonacoEditorState extends State<MonacoEditor> {
       if (widget.backgroundColor != null) {
         await _controller!.setBackgroundColor(widget.backgroundColor!);
       }
-
       // Ensure options are up-to-date in case they changed during bootstrap
       if (_isBootstrapCurrent(bootstrapToken)) {
         // We can't easily check if they differ from what we passed to create(),
@@ -321,7 +338,7 @@ class _MonacoEditorState extends State<MonacoEditor> {
           return;
         }
       }
-      if (widget.autofocus) {
+      if (widget.autofocus && widget.interactionEnabled) {
         // Defer to next frame to ensure visibility, request Flutter focus, and then enforce Monaco focus
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_isBootstrapCurrent(bootstrapToken)) return;
@@ -474,8 +491,8 @@ class _MonacoEditorState extends State<MonacoEditor> {
     final webView = SizedBox.expand(
       child: Focus(
         focusNode: _webFocusNode,
-        canRequestFocus: true,
-        autofocus: widget.autofocus,
+        canRequestFocus: widget.interactionEnabled,
+        autofocus: widget.autofocus && widget.interactionEnabled,
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent) {
             return KeyEventResult.skipRemainingHandlers;
@@ -485,6 +502,7 @@ class _MonacoEditorState extends State<MonacoEditor> {
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (_) {
+            if (!widget.interactionEnabled) return;
             if (!_webFocusNode.hasFocus) {
               _webFocusNode.requestFocus();
             }

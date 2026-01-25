@@ -33,6 +33,7 @@ class MonacoController {
   final PlatformWebViewController _webViewController;
   final Completer<void> _onReady = Completer<void>();
   bool _disposed = false;
+  bool _interactionEnabled = true;
 
   // Event streams
   final _onContentChanged = StreamController<bool>.broadcast();
@@ -56,6 +57,9 @@ class MonacoController {
   /// Returns `true` if the editor has finished initializing.
   bool get isReady => _onReady.isCompleted;
 
+  /// Returns `true` if the editor currently accepts user interaction.
+  bool get isInteractionEnabled => _interactionEnabled;
+
   /// Exposes real-time statistics (cursor position, selection, line count).
   ValueNotifier<LiveStats> get liveStats => _bridge.liveStats;
 
@@ -73,8 +77,12 @@ class MonacoController {
 
   /// Creates and initializes a new [MonacoController].
   ///
-  /// This method spins up the WebView, loads the Monaco resources, and waits for
-  /// the `onReady` signal from JavaScript.
+  /// This method spins up the WebView and loads the Monaco resources.
+  ///
+  /// On native platforms it waits for the `onReady` signal from JavaScript
+  /// before returning. On web it returns as soon as the controller is created
+  /// and continues initialization in the background. Use [onReady] or
+  /// [isReady] to wait for readiness on web.
   ///
   /// Throws a [TimeoutException] if the editor does not become ready within [readyTimeout] (default 20s).
   ///
@@ -269,6 +277,20 @@ class MonacoController {
     await _webViewController.setBackgroundColor(color);
   }
 
+  /// Toggles whether the editor intercepts pointer events.
+  ///
+  /// On Web, this is used to allow Flutter overlays (like dialogs) to receive
+  /// pointer events even when they overlap the editor. When disabled, the
+  /// editor will not respond to mouse or touch events.
+  ///
+  /// On native platforms, this may be a no-op as overlays work correctly by default.
+  Future<void> setInteractionEnabled(bool enabled) async {
+    // No need to wait for ready, can be set immediately
+    if (_disposed) return;
+    _interactionEnabled = enabled;
+    await _webViewController.setInteractionEnabled(enabled);
+  }
+
   /// Updates the editor configuration options.
   ///
   /// Only the fields present in [options] will be updated; others remain unchanged.
@@ -385,6 +407,7 @@ class MonacoController {
   ///
   /// Uses a robust method that waits for visibility and layout before attempting focus.
   Future<void> focus() async {
+    if (!_interactionEnabled) return;
     await _ensureReady();
     // Use robust in-page helper (waits for visibility, layouts, focuses textarea)
     await _webViewController.runJavaScript(
@@ -397,6 +420,7 @@ class MonacoController {
   Future<void> ensureEditorFocus(
       {int attempts = 3,
       Duration interval = const Duration(milliseconds: 24)}) async {
+    if (!_interactionEnabled) return;
     await _ensureReady();
     for (var i = 0; i < attempts; i++) {
       try {
@@ -517,29 +541,36 @@ class MonacoController {
       if (json.tryGetString('event') != 'completionRequest') return;
 
       unawaited(() async {
-        await _ensureReady();
-        final request = CompletionRequest.fromJson(json);
-        final registered = _completionSources[request.providerId];
-        const emptySuggestions = {
-          'suggestions': <Map<String, dynamic>>[],
-        };
-
-        Future<void> respond(Map<String, dynamic> payload) {
-          return _webViewController.runJavaScript(
-            'flutterMonaco.complete(${jsonEncode(request.requestId)}, ${jsonEncode(payload)})',
-          );
-        }
-
-        if (registered == null) {
-          await respond(emptySuggestions);
-          return;
-        }
-
         try {
-          final result = await registered.provider(request);
-          await respond(result.toJson());
-        } catch (_) {
-          await respond(emptySuggestions);
+          await _ensureReady();
+          final request = CompletionRequest.fromJson(json);
+          final registered = _completionSources[request.providerId];
+          const emptySuggestions = {
+            'suggestions': <Map<String, dynamic>>[],
+          };
+
+          Future<void> respond(Map<String, dynamic> payload) {
+            return _webViewController.runJavaScript(
+              'flutterMonaco.complete(${jsonEncode(request.requestId)}, ${jsonEncode(payload)})',
+            );
+          }
+
+          if (registered == null) {
+            await respond(emptySuggestions);
+            return;
+          }
+
+          try {
+            final result = await registered.provider(request);
+            await respond(result.toJson());
+          } catch (e) {
+            debugPrint(
+              '[MonacoController] completion provider failed: $e',
+            );
+            await respond(emptySuggestions);
+          }
+        } catch (e) {
+          debugPrint('[MonacoController] completion respond failed: $e');
         }
       }());
     });
@@ -955,7 +986,15 @@ class MonacoController {
 
     // Enhanced URI conversion with fallback
     final createdUri = result != null ? tryConvertToUri(result) : null;
-    return createdUri ?? defaultUri ?? Uri.parse('file:///untitled');
+    if (createdUri != null) {
+      return createdUri;
+    }
+    if (defaultUri != null) {
+      return defaultUri;
+    }
+    throw StateError(
+      'flutterMonaco.createModel returned invalid uri: $result',
+    );
   }
 
   /// Set the active model

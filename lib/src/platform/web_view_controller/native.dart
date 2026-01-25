@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_monaco/flutter_monaco.dart';
 import 'package:flutter_monaco/src/platform/platform_webview.dart';
@@ -186,6 +187,11 @@ class FlutterWebViewController extends WebViewController {
     await _controller.setBackgroundColor(color);
   }
 
+  @override
+  Future<void> setInteractionEnabled(bool enabled) async {
+    // No-op on native platforms as overlays work correctly by default.
+  }
+
   /// Loads a Flutter asset into the WebView.
   Future<Object?> loadFlutterAsset(String asset) async {
     await _controller.loadFlutterAsset(asset);
@@ -328,9 +334,11 @@ class WindowsWebViewController extends WebViewController {
     _webMessageSubscription = _controller.webMessage.listen((
       dynamic rawMessage,
     ) {
-      debugPrint(
-        '[WindowsWebViewController] Raw message: $rawMessage (${rawMessage.runtimeType})',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '[WindowsWebViewController] Raw message: $rawMessage (${rawMessage.runtimeType})',
+        );
+      }
 
       try {
         String messageStr;
@@ -344,13 +352,17 @@ class WindowsWebViewController extends WebViewController {
         }
 
         _channels.forEach((channelName, handler) {
-          debugPrint(
-            '[WindowsWebViewController] Forwarding to channel: $channelName',
-          );
+          if (kDebugMode) {
+            debugPrint(
+              '[WindowsWebViewController] Forwarding to channel: $channelName',
+            );
+          }
           handler(messageStr);
         });
       } catch (e) {
-        debugPrint('[WindowsWebViewController] Error handling message: $e');
+        if (kDebugMode) {
+          debugPrint('[WindowsWebViewController] Error handling message: $e');
+        }
       }
     });
   }
@@ -375,6 +387,11 @@ class WindowsWebViewController extends WebViewController {
   @override
   Future<void> setBackgroundColor(Color color) async {
     await _controller.setBackgroundColor(color);
+  }
+
+  @override
+  Future<void> setInteractionEnabled(bool enabled) async {
+    // No-op on Windows as WebView2 respects Flutter's overlay stacking.
   }
 
   @override

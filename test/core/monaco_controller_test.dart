@@ -114,6 +114,27 @@ void main() {
       });
     });
 
+    group('interaction', () {
+      test('isInteractionEnabled defaults to true', () async {
+        final bundle = await _createBundle(ready: false);
+        expect(bundle.controller.isInteractionEnabled, true);
+      });
+
+      test('setInteractionEnabled updates state and webview immediately',
+          () async {
+        final bundle = await _createBundle(ready: false);
+
+        await bundle.controller.setInteractionEnabled(false);
+
+        expect(bundle.controller.isInteractionEnabled, false);
+        expect(bundle.webview.interactionEnabled, false);
+        expect(
+          bundle.webview.executed.any((s) => s == 'SET_INTERACTION:false'),
+          true,
+        );
+      });
+    });
+
     group('content queuing', () {
       test('queued setValue overwrites older value', () async {
         final bundle = await _createBundle(ready: false);

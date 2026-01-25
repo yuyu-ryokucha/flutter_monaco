@@ -127,6 +127,10 @@ class WebViewController implements PlatformWebViewController {
   @override
   Future<void> setBackgroundColor(Color color) =>
       _controller.setBackgroundColor(color);
+
+  @override
+  Future<void> setInteractionEnabled(bool enabled) =>
+      _controller.setInteractionEnabled(enabled);
 }
 
 /// Normalizes WebView2 `ExecuteScript` results to Dart-friendly types.

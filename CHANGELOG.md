@@ -3,6 +3,20 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-01-25
+
+### Added
+- Added `interactionEnabled` to `MonacoEditor` and `MonacoController.setInteractionEnabled`. This allows Flutter Web overlays (dialogs, dropdowns) to receive pointer events when they overlap the Monaco editor.
+- Added `autoDisableInteraction` to `MonacoFocusGuard` to automatically toggle editor interaction based on route changes.
+- Web: Focus enforcement is now gated by the interaction flag to prevent focus stealing when overlays are active.
+
+### Fixed
+- `createModel` now returns a valid URI or throws when Monaco returns invalid data.
+- `lineHeight` now behaves as a multiplier in Dart and is converted to pixels for Monaco.
+- Completion suggestions now fall back to the default range when item ranges are omitted.
+- Font ligatures respect `EditorOptions.fontLigatures`.
+- Windows message logging is gated for debug builds to avoid release noise.
+
 ## [1.3.0] - 2026-01-24
 
 - Added Web platform support.

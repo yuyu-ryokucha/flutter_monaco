@@ -27,7 +27,12 @@ sealed class EditorOptions with _$EditorOptions {
     /// Accepts a CSS `font-family` string (e.g. "Fira Code, monospace").
     @Default('Consolas, "Courier New", monospace') String fontFamily,
 
-    /// The line height as a multiple of the font size.
+    /// The line height for editor lines.
+    ///
+    /// - Use `0` to let Monaco compute a value from [fontSize].
+    /// - Values between `0` and `8` are treated as multipliers of [fontSize]
+    ///   (for example, `1.4` means 140 percent of [fontSize]).
+    /// - Values `8` or greater are treated as absolute pixel values.
     @Default(1.4) double lineHeight,
 
     /// Controls whether long lines should wrap to the next line.
@@ -194,10 +199,16 @@ sealed class EditorOptions with _$EditorOptions {
 
   /// Convert to Monaco editor options format
   Map<String, dynamic> toMonacoOptions() {
+    final int? lineHeightPx = lineHeight <= 0
+        ? null
+        : (lineHeight < 8
+            ? (fontSize * lineHeight).round()
+            : lineHeight.round());
+
     return {
       'fontSize': fontSize,
       'fontFamily': fontFamily,
-      'lineHeight': lineHeight,
+      if (lineHeightPx != null) 'lineHeight': lineHeightPx,
       'wordWrap': wordWrap ? 'on' : 'off',
       'minimap': {'enabled': minimap},
       'lineNumbers': lineNumbers ? 'on' : 'off',

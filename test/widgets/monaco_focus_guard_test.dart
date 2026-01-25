@@ -73,5 +73,57 @@ void main() {
       await tester.pumpAndSettle();
       expect(webview.executed.join('\n').contains('forceFocus'), true);
     });
+
+    testWidgets('modal route toggles interaction', (tester) async {
+      final webview = FakePlatformWebViewController();
+      final controller = await _controller(webview);
+      final observer = MonacoRouteObserver();
+
+      await tester.pumpWidget(MaterialApp(
+        navigatorObservers: [observer],
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: Column(
+                children: [
+                  MonacoFocusGuard(
+                    controller: controller,
+                    modalRouteObserver: observer,
+                    autoDisableInteraction: true,
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      showDialog<void>(
+                        context: context,
+                        builder: (_) => const Text('Dialog'),
+                      );
+                    },
+                    child: const Text('Show Dialog'),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ));
+
+      // Initial state: interaction enabled
+      expect(webview.interactionEnabled, true);
+
+      // Open dialog
+      await tester.tap(find.text('Show Dialog'));
+      await tester.pumpAndSettle();
+
+      // Dialog is open -> interaction disabled
+      expect(webview.interactionEnabled, false);
+
+      // Close dialog
+      // Use navigator pop to be robust against hit test geometry
+      Navigator.of(tester.element(find.text('Dialog'))).pop();
+      await tester.pumpAndSettle();
+
+      // Dialog closed -> interaction re-enabled
+      expect(webview.interactionEnabled, true);
+    });
   });
 }

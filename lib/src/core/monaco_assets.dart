@@ -491,7 +491,6 @@ class MonacoAssets {
   console.log('[Windows Init] Creating flutterChannel on document creation');
   window.flutterChannel = {
     postMessage: function(msg) {
-      console.log('[flutterChannel] Posting message:', msg);
       if (window.chrome && window.chrome.webview) {
         window.chrome.webview.postMessage(msg);
       } else {
@@ -562,13 +561,6 @@ class MonacoAssets {
     <style>
       html, body, #editor-container {
         width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
-      }
-      
-      /* Enable font ligatures in Monaco editor if supported by the font */
-      .monaco-editor {
-        font-variant-ligatures: contextual;
-        -webkit-font-feature-settings: "liga" on, "calt" on;
-        font-feature-settings: "liga" on, "calt" on;
       }
     </style>
     ${customCss != null ? '<style id="flutter-monaco-custom">\n$customCss\n</style>' : ''}
@@ -948,8 +940,6 @@ class MonacoAssets {
                         new Promise((resolve) => {
                           const reqId =
                             id + ':' + Date.now() + ':' + Math.random().toString(36).slice(2);
-                          completion.resolvers[reqId] = resolve;
-
                           const lang =
                             (model.getLanguageId && model.getLanguageId()) ||
                             monaco.editor.getModelLanguage(model);
@@ -959,6 +949,10 @@ class MonacoAssets {
                             startColumn: word.startColumn,
                             endLineNumber: position.lineNumber,
                             endColumn: word.endColumn,
+                          };
+                          completion.resolvers[reqId] = {
+                            resolve,
+                            defaultRange,
                           };
 
                           const payload = {
@@ -1008,10 +1002,13 @@ class MonacoAssets {
 
                   // Flutter -> JS: deliver completion results
                   window.flutterMonaco.complete = function (requestId, payload) {
-                    const resolve = completion.resolvers[requestId];
-                    if (!resolve) return;
+                    const resolver = completion.resolvers[requestId];
+                    if (!resolver) return;
+                    const resolve = resolver.resolve;
+                    const fallbackRange = resolver.defaultRange;
                     try {
                       const items = (payload && payload.suggestions) || [];
+                      const defaultRange = payload?.defaultRange || fallbackRange;
                       const mapped = items.map((it) => {
                         let kind = it.kind;
                         if (typeof kind === 'string') {
@@ -1035,7 +1032,7 @@ class MonacoAssets {
                           filterText: it.filterText,
                           commitCharacters: it.commitCharacters,
                           insertTextRules: insertTextRules || undefined,
-                          range: toIRange(it.range) || toIRange(payload?.defaultRange),
+                          range: toIRange(it.range) || toIRange(defaultRange),
                         };
                       });
                       resolve({

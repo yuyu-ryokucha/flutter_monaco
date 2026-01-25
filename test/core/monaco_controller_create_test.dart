@@ -23,6 +23,7 @@ class _ThrowingWebViewController implements PlatformWebViewController {
   bool disposed = false;
   bool initialized = false;
   bool jsEnabled = false;
+  bool interactionEnabled = true;
   final Map<String, void Function(String)> _channels = {};
 
   @override
@@ -63,6 +64,11 @@ class _ThrowingWebViewController implements PlatformWebViewController {
 
   @override
   Future<void> setBackgroundColor(Color color) async {}
+
+  @override
+  Future<void> setInteractionEnabled(bool enabled) async {
+    interactionEnabled = enabled;
+  }
 
   @override
   Widget get widget => const SizedBox.shrink();

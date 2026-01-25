@@ -31,18 +31,24 @@ A Flutter plugin for integrating the Monaco Editor (VS Code's editor) into Flutt
 
 <table>
   <tr>
-    <td align="center" colspan="2"><b>Windows</b></td>
-  </tr>
-  <tr>
-    <td colspan="2"><img src="https://github.com/omar-hanafy/flutter_monaco/blob/main/screenshots/windows.png?raw=true" alt="Windows Screenshot" width="100%"></td>
-  </tr>
-  <tr>
     <td align="center" width="50%"><b>iOS</b></td>
     <td align="center" width="50%"><b>Android</b></td>
   </tr>
   <tr>
     <td><img src="https://github.com/omar-hanafy/flutter_monaco/blob/main/screenshots/ios.jpg?raw=true" alt="iOS Screenshot" width="100%"></td>
     <td><img src="https://github.com/omar-hanafy/flutter_monaco/blob/main/screenshots/android.jpg?raw=true" alt="Android Screenshot" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Windows</b></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="https://github.com/omar-hanafy/flutter_monaco/blob/main/screenshots/windows.png?raw=true" alt="Windows Screenshot" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>Web</b></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="https://github.com/omar-hanafy/flutter_monaco/blob/main/screenshots/web.png?raw=true" alt="Web Screenshot" width="100%"></td>
   </tr>
 </table>
 
@@ -96,7 +102,8 @@ const EditorOptions(
   cursorBlinking: CursorBlinking.smooth,
   cursorStyle: CursorStyle.block,
   renderWhitespace: RenderWhitespace.boundary,
-  autoClosingBehavior: AutoClosingBehavior.languageDefined,
+  autoClosingBrackets: AutoClosingBehavior.languageDefined,
+  autoClosingQuotes: AutoClosingBehavior.languageDefined,
 );
 
 // Dynamic language selection (when loading from user preferences, etc.)
@@ -152,7 +159,7 @@ await controller.setTheme(theme);
 - `RenderWhitespace.trailing` - Render trailing whitespace
 - `RenderWhitespace.all` - Render all whitespace
 
-**AutoClosingBehavior**
+**AutoClosingBehavior (Brackets and Quotes)**
 
 - `AutoClosingBehavior.always` - Always auto-close brackets
 - `AutoClosingBehavior.languageDefined` - Use language defaults
@@ -164,6 +171,7 @@ await controller.setTheme(theme);
 Monaco already knows how to merge results from multiple completion providers. Flutter Monaco now exposes this capability with a tiny, type-safe API that keeps all of the heavy lifting in Dart. Register static keyword/snippet lists or dynamic providers that call your own services.
 
 ```dart
+// Note: On web, prefer MonacoEditor with onReady instead of calling create.
 final controller = await MonacoController.create(
   options: const EditorOptions(
     language: MonacoLanguage.typescript,
@@ -256,7 +264,7 @@ Need to remove a provider? Call `controller.unregisterCompletionSource(id)` at a
 
 ## Multiple Editors Example
 
-Create a sophisticated multi-editor layout with different languages and themes:
+Create a multi-editor layout with different languages and themes. This approach works on all platforms including web:
 
 ```dart
 class MultiEditorView extends StatefulWidget {
@@ -267,88 +275,53 @@ class MultiEditorView extends StatefulWidget {
 class _MultiEditorViewState extends State<MultiEditorView> {
   MonacoController? _dartController;
   MonacoController? _jsController;
-  MonacoController? _markdownController;
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeEditors();
-  }
-
-  Future<void> _initializeEditors() async {
-    // Create three independent editors with type-safe configurations
-    _dartController = await MonacoController.create(
-      options: const EditorOptions(
-        language: MonacoLanguage.dart,
-        theme: MonacoTheme.vsDark,
-        fontSize: 14,
-        minimap: true,
-      ),
-    );
-
-    _jsController = await MonacoController.create(
-      options: const EditorOptions(
-        language: MonacoLanguage.javascript,
-        theme: MonacoTheme.vs,  // Light theme
-        fontSize: 14,
-        minimap: true,
-      ),
-    );
-
-    _markdownController = await MonacoController.create(
-      options: const EditorOptions(
-        language: MonacoLanguage.markdown,
-        theme: MonacoTheme.vsDark,
-        fontSize: 15,
-        wordWrap: true,
-        minimap: false,
-        lineNumbers: false,
-      ),
-    );
-
-    // Set initial content
-    await _dartController!.setValue('// Dart code');
-    await _jsController!.setValue('// JavaScript code');
-    await _markdownController!.setValue('# Markdown content');
-
-    setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (_dartController == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Column(
       children: [
-        // Top row - Dart and JavaScript side by side
+        // Dart editor
         Expanded(
-          flex: 2,
-          child: Row(
-            children: [
-              Expanded(child: _dartController!.webViewWidget),
-              const VerticalDivider(width: 1),
-              Expanded(child: _jsController!.webViewWidget),
-            ],
+          child: MonacoEditor(
+            initialValue: '// Dart code\nvoid main() {}',
+            options: const EditorOptions(
+              language: MonacoLanguage.dart,
+              theme: MonacoTheme.vsDark,
+            ),
+            onReady: (c) => setState(() => _dartController = c),
           ),
         ),
         const Divider(height: 1),
-        // Bottom - Markdown editor
+        // JavaScript editor
         Expanded(
-          child: _markdownController!.webViewWidget,
+          child: MonacoEditor(
+            initialValue: '// JavaScript code\nfunction main() {}',
+            options: const EditorOptions(
+              language: MonacoLanguage.javascript,
+              theme: MonacoTheme.vs,  // Light theme
+            ),
+            onReady: (c) => setState(() => _jsController = c),
+          ),
         ),
       ],
     );
   }
+}
+```
 
-  @override
-  void dispose() {
-    _dartController?.dispose();
-    _jsController?.dispose();
-    _markdownController?.dispose();
-    super.dispose();
-  }
+Alternative for native platforms only: if you need more control, you can still use `MonacoController.create()` directly:
+
+```dart
+// Native platforms only. On web, use MonacoEditor and onReady instead.
+Future<void> _initializeEditors() async {
+  _dartController = await MonacoController.create(
+    options: const EditorOptions(
+      language: MonacoLanguage.dart,
+      theme: MonacoTheme.vsDark,
+    ),
+  );
+  await _dartController!.setValue('// Dart code');
+  setState(() {});
 }
 ```
 
@@ -447,7 +420,7 @@ await controller.addLineDecorations(
 // Work with multiple models
 final uri = await controller.createModel(
   'console.log("New file");',
-  language: MonacoLanguage.javascript,
+  language: MonacoLanguage.javascript.id,
 );
 await controller.setModel(uri);
 ```
@@ -462,7 +435,7 @@ const EditorOptions(
   theme: MonacoTheme.vsDark,      // vs, vsDark, hcBlack, hcLight
   fontSize: 14,
   fontFamily: 'Consolas, monospace',
-  lineHeight: 1.4,
+  lineHeight: 1.4,                // Multiplier (< 8) or pixels (>= 8)
   wordWrap: true,                  // or false
   minimap: false,
   lineNumbers: true,               // or false
@@ -484,7 +457,8 @@ const EditorOptions(
   hover: true,
   contextMenu: true,
   mouseWheelZoom: false,
-  autoClosingBehavior: AutoClosingBehavior.languageDefined,  // always, languageDefined, beforeWhitespace, never
+  autoClosingBrackets: AutoClosingBehavior.languageDefined,  // always, languageDefined, beforeWhitespace, never
+  autoClosingQuotes: AutoClosingBehavior.languageDefined,    // always, languageDefined, beforeWhitespace, never
 );
 ```
 
@@ -504,6 +478,45 @@ print('File count: ${info['fileCount']}');
 
 // Clear cache (forces re-extraction on next use)
 await MonacoAssets.clearCache();
+```
+
+### Web: Handling Overlays (Dialogs, Dropdowns)
+
+Web platform only. This does not affect native platforms.
+
+On Flutter Web, Monaco is hosted in an `iframe`. By default, the `iframe` intercepts all pointer events, which means Flutter overlays (like `showDialog` or `DropdownButton`) that visually overlap the editor will not receive clicks.
+
+Common symptoms:
+
+- Dialogs appear but buttons do not respond
+- Dropdown menus or popups are visible but not clickable
+
+Recommended setup: provide a RouteObserver and let MonacoFocusGuard toggle interaction automatically for popup routes:
+
+```dart
+final MonacoRouteObserver monacoRouteObserver = MonacoRouteObserver();
+
+MaterialApp(
+  navigatorObservers: [monacoRouteObserver],
+  // ...
+);
+```
+
+```dart
+MonacoFocusGuard(
+  controller: controller,
+  modalRouteObserver: monacoRouteObserver,
+  autoDisableInteraction: true,
+)
+```
+
+Manual alternative: if you cannot use a RouteObserver in your app, you can still toggle the editor manually:
+
+```dart
+MonacoEditor(
+  interactionEnabled: !isOverlayOpen,
+  // ...
+)
 ```
 
 ## Architecture
@@ -565,6 +578,51 @@ The plugin uses a versioned cache system:
 
 - Modern browser with ES6+ support (Chrome, Firefox, Safari, Edge)
 - No additional configuration required
+
+> **Important:** On web, use `MonacoEditor` with `onReady`, or await `controller.onReady` after the widget is mounted. `MonacoController.create()` returns before the editor is ready on web, and it will time out if called before the iframe is in the DOM. See the [Web Usage](#web-usage) section below.
+
+## Web Usage
+
+On web, the Monaco Editor runs inside an iframe that must be mounted in the DOM before initialization can complete. This means you should **not** call `MonacoController.create()` before the widget tree is built (e.g., in `initState`).
+
+**Recommended pattern for web:**
+
+```dart
+class MyEditor extends StatefulWidget {
+  @override
+  State<MyEditor> createState() => _MyEditorState();
+}
+
+class _MyEditorState extends State<MyEditor> {
+  MonacoController? _controller;
+
+  void _onEditorReady(MonacoController controller) {
+    setState(() => _controller = controller);
+    // Now you can use the controller for advanced operations
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MonacoEditor(
+      initialValue: 'print("Hello!");',
+      options: const EditorOptions(
+        language: MonacoLanguage.dart,
+        theme: MonacoTheme.vsDark,
+      ),
+      onReady: _onEditorReady,
+    );
+  }
+}
+```
+
+This pattern works on all platforms and is the recommended approach. The `MonacoEditor` widget handles controller lifecycle internally and provides the controller via `onReady` callback once initialized.
+
+**Why this matters on web:**
+- On web, `MonacoController.create()` returns before Monaco signals "ready"
+- Use `controller.onReady` or the `MonacoEditor` `onReady` callback for readiness
+- The iframe must be in the DOM for Monaco JS to initialize
+- Calling `create()` in `initState` (before `build`) can cause a timeout
+- Native platforms do not have this constraint because WebView initialization is different
 
 ## Example App
 

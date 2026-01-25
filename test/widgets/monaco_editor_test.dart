@@ -803,5 +803,44 @@ void main() {
         expect(container.constraints, constraints);
       });
     });
+
+    group('interaction', () {
+      testWidgets('interactionEnabled applied before ready', (tester) async {
+        final bundle = await _createBundle(ready: false);
+
+        await tester.pumpWidget(_wrap(MonacoEditor(
+          controller: bundle.controller,
+          interactionEnabled: false,
+        )));
+        await tester.pump();
+
+        expect(bundle.webview.interactionEnabled, false);
+        expect(
+          bundle.webview.executed.any((s) => s == 'SET_INTERACTION:false'),
+          true,
+        );
+      });
+
+      testWidgets('interactionEnabled updates while connecting',
+          (tester) async {
+        final bundle = await _createBundle(ready: false);
+
+        await tester.pumpWidget(_wrap(MonacoEditor(
+          controller: bundle.controller,
+          interactionEnabled: false,
+        )));
+        await tester.pump();
+
+        await tester.pumpWidget(_wrap(MonacoEditor(
+          controller: bundle.controller,
+          interactionEnabled: true,
+        )));
+        await tester.pump();
+
+        final joined = bundle.webview.executed.join('\n');
+        expect(joined.contains('SET_INTERACTION:false'), true);
+        expect(joined.contains('SET_INTERACTION:true'), true);
+      });
+    });
   });
 }

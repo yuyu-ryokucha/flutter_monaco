@@ -626,6 +626,14 @@ This pattern works on all platforms and is the recommended approach. The `Monaco
 
 ## Example App
 
+### Live Web Demo
+
+You can try the live web demo here:
+
+```text
+https://omar-hanafy.github.io/flutter-monaco/
+```
+
 The [example](example/) directory contains a full demonstration app with:
 
 - Basic single editor setup

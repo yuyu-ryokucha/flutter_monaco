@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_monaco/flutter_monaco.dart';
 
@@ -234,7 +236,7 @@ if __name__ == "__main__":
       content: r'''
 {
   "name": "flutter_monaco",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Monaco Editor for Flutter - Web, Desktop & Mobile",
   "platforms": {
     "web": { "enabled": true },
@@ -384,6 +386,24 @@ MonacoEditor(
     }
   }
 
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not open link'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          width: 220,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final file = _files[_activeFileIndex];
@@ -433,31 +453,41 @@ MonacoEditor(
       child: Row(
         children: [
           // Logo
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0098FF).withValues(alpha: 0.15),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.code, color: Color(0xFF0098FF), size: 18),
-                SizedBox(width: 8),
-                Text(
-                  'flutter_monaco',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
+              onTap: () => _openUrl(
+                'https://pub.dev/packages/flutter_monaco',
+              ),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0098FF).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                SizedBox(width: 8),
-                Text(
-                  'v1.3.0',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.code, color: Color(0xFF0098FF), size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'flutter_monaco',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'v1.4.0',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 24),
@@ -529,6 +559,21 @@ MonacoEditor(
               backgroundColor: const Color(0xFF2EA043),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'GitHub',
+            onPressed: () => _openUrl(
+              'https://github.com/omar-hanafy/flutter_monaco',
+            ),
+            icon: SvgPicture.asset(
+              'assets/github.svg',
+              package: 'flutter_monaco',
+              width: 20,
+              height: 20,
+              colorFilter:
+                  const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
             ),
           ),
         ],
